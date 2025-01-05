@@ -312,7 +312,7 @@ impl Window {
 
     #[inline]
     pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
-        Err(NotSupportedError::new())
+        self.window_state.lock().unwrap().outer_position()
     }
 
     #[inline]
@@ -321,8 +321,8 @@ impl Window {
     }
 
     #[inline]
-    pub fn set_outer_position(&self, _: Position) {
-        // Not possible on Wayland.
+    pub fn set_outer_position(&self, position: Position) {
+        self.window_state.lock().unwrap().set_outer_position(position);
     }
 
     #[inline]

@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use ahash::HashSet;
-use tracing::{info, warn};
+use dpi::{PhysicalPosition, Position};
+use tracing::{info, warn, error};
 
 use sctk::reexports::client::backend::ObjectId;
 use sctk::reexports::client::protocol::wl_seat::WlSeat;
@@ -33,7 +34,7 @@ use wayland_protocols_plasma::blur::client::org_kde_kwin_blur::OrgKdeKwinBlur;
 
 use crate::cursor::CustomCursor as RootCustomCursor;
 use crate::dpi::{LogicalPosition, LogicalSize, PhysicalSize, Size};
-use crate::error::{ExternalError, NotSupportedError};
+use crate::error::{self, ExternalError, NotSupportedError};
 use crate::platform_impl::wayland::logical_to_physical_rounded;
 use crate::platform_impl::wayland::types::cursor::{CustomCursor, SelectedCursor};
 use crate::platform_impl::wayland::types::kwin_blur::KWinBlurManager;
@@ -86,9 +87,6 @@ pub struct WindowState {
 
     /// The current window title.
     title: String,
-
-    /// Whether the frame is resizable.
-    resizable: bool,
 
     // NOTE: we can't use simple counter, since it's racy when seat getting destroyed and new
     // is created, since add/removed stuff could be delivered a bit out of order.
@@ -208,7 +206,6 @@ impl WindowState {
             pointer_constraints,
             pointers: Default::default(),
             queue_handle: queue_handle.clone(),
-            resizable: true,
             scale_factor: 1.,
             shm: winit_state.shm.wl_shm().clone(),
             custom_cursor_pool: winit_state.custom_cursor_pool.clone(),
@@ -261,11 +258,10 @@ impl WindowState {
             },
             size: initial_size.to_logical(1.0),
             selected_cursor: Default::default(),
-            decorate: true,
+            decorate: false,
             frame_callback_state: FrameCallbackState::None,
             seat_focus: Default::default(),
             has_pending_move: None,
-            resizable: true,
             custom_cursor_pool: winit_state.custom_cursor_pool.clone(),
             initial_size: Some(initial_size),
             text_inputs: Vec::new(),
@@ -273,6 +269,26 @@ impl WindowState {
             transparent: false,
             blur: None,
             blur_manager: winit_state.kwin_blur_manager.clone(),
+        }
+    }
+
+
+    #[inline]
+    pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
+        error!("window position information is not available on Wayland");
+        Err(NotSupportedError::new())
+    }
+    pub fn set_outer_position(&self, position: Position) {
+        let position = position.to_logical(self.scale_factor);
+        match &self.shell_specific {
+            ShellSpecificState::Xdg { .. } => {
+                warn!("Change window position is not available on xdg (non-layershell) Wayland",)
+            },
+            // XXX just works for LayerShell
+            // Probably we can save this change to get in the `outer_position` function
+            ShellSpecificState::WlrLayer { surface, .. } => {
+                surface.set_margin(position.y, 0, 0, position.x)
+            },
         }
     }
 
