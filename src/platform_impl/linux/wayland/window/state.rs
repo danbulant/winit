@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use ahash::HashSet;
 use dpi::{PhysicalPosition, Position};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use sctk::reexports::client::backend::ObjectId;
 use sctk::reexports::client::protocol::wl_seat::WlSeat;
@@ -22,8 +22,8 @@ use sctk::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use sctk::reexports::protocols::xdg::shell::client::xdg_toplevel::ResizeEdge as XdgResizeEdge;
 
 use sctk::compositor::{CompositorState, Region, SurfaceData, SurfaceDataExt};
-use sctk::shell::wlr_layer::{LayerSurface, LayerSurfaceConfigure};
 use sctk::seat::pointer::{PointerDataExt, ThemedPointer};
+use sctk::shell::wlr_layer::{Anchor, LayerSurface, LayerSurfaceConfigure};
 use sctk::shell::xdg::window::{DecorationMode, Window, WindowConfigure};
 use sctk::shell::xdg::XdgSurface;
 use sctk::shell::WaylandSurface;
@@ -272,7 +272,6 @@ impl WindowState {
         }
     }
 
-
     #[inline]
     pub fn outer_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
         error!("window position information is not available on Wayland");
@@ -289,6 +288,28 @@ impl WindowState {
             ShellSpecificState::WlrLayer { surface, .. } => {
                 surface.set_margin(position.y, 0, 0, position.x)
             },
+        }
+    }
+
+    pub fn set_anchor(&self, anchor: Anchor) {
+        match &self.shell_specific {
+            ShellSpecificState::Xdg { .. } => {
+                warn!("Change window anchor is not available on xdg (non-layershell) Wayland",)
+            },
+            // XXX just works for LayerShell
+            ShellSpecificState::WlrLayer { surface, .. } => surface.set_anchor(anchor),
+        }
+    }
+
+    pub fn set_exclusive_zone(&self, zone: i32) {
+        match &self.shell_specific {
+            ShellSpecificState::Xdg { .. } => {
+                warn!(
+                    "Change window exclusive zone is not available on xdg (non-layershell) Wayland",
+                )
+            },
+            // XXX just works for LayerShell
+            ShellSpecificState::WlrLayer { surface, .. } => surface.set_exclusive_zone(zone),
         }
     }
 
@@ -365,9 +386,7 @@ impl WindowState {
         }
 
         if let Some(subcompositor) = subcompositor.as_ref().filter(|_| {
-            configure.decoration_mode == DecorationMode::Client
-                && frame.is_none()
-                && !*csd_fails
+            configure.decoration_mode == DecorationMode::Client && frame.is_none() && !*csd_fails
         }) {
             match WinitFrame::new(
                 window,
@@ -827,10 +846,15 @@ impl WindowState {
 
     /// Try to resize the window when the user can do so.
     pub fn request_inner_size(&mut self, inner_size: Size) -> PhysicalSize<u32> {
-        if let ShellSpecificState::Xdg { last_configure, .. } = &self.shell_specific {
-            if last_configure.as_ref().map(Self::is_stateless).unwrap_or(true) {
-                self.resize(inner_size.to_logical(self.scale_factor()))
-            }
+        match &self.shell_specific {
+            ShellSpecificState::Xdg { last_configure, .. } => {
+                if last_configure.as_ref().map(Self::is_stateless).unwrap_or(true) {
+                    self.resize(inner_size.to_logical(self.scale_factor()))
+                }
+            },
+            ShellSpecificState::WlrLayer { surface, .. } => {
+                // self.resize(inner_size.to_logical(self.scale_factor()));
+            },
         };
 
         logical_to_physical_rounded(self.inner_size(), self.scale_factor())
@@ -877,7 +901,8 @@ impl WindowState {
                     outer_size.width as i32,
                     outer_size.height as i32,
                 );
-                // Update the target viewport, this is used if and only if fractional scaling is in use.
+                // Update the target viewport, this is used if and only if fractional scaling is in
+                // use.
                 if let Some(viewport) = viewport.as_ref() {
                     // Set inner size without the borders.
                     viewport.set_destination(self.size.width as _, self.size.height as _);
@@ -1241,7 +1266,7 @@ impl WindowState {
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f64) {
         self.scale_factor = scale_factor;
-        
+
         if let ShellSpecificState::Xdg { frame: Some(ref mut frame), fractional_scale, .. } =
             &mut self.shell_specific
         {
@@ -1298,7 +1323,7 @@ impl WindowState {
             },
             ShellSpecificState::WlrLayer { .. } => {},
         }
-        
+
         self.title = title;
     }
 

@@ -485,6 +485,26 @@ impl Window {
     }
 
     #[inline]
+    pub fn set_anchor(&self, anchor: Anchor) {
+        match self {
+            #[cfg(wayland_platform)]
+            Window::Wayland(w) => w.set_anchor(anchor),
+            #[cfg(x11_platform)]
+            Window::X(_) => (),
+        }
+    }
+
+    #[inline]
+    pub fn set_exclusive_zone(&self, exclusive_zone: i32) {
+        match self {
+            #[cfg(wayland_platform)]
+            Window::Wayland(w) => w.set_exclusive_zone(exclusive_zone),
+            #[cfg(x11_platform)]
+            Window::X(_) => (),
+        }
+    }
+
+    #[inline]
     pub fn set_maximized(&self, maximized: bool) {
         x11_or_wayland!(match self; Window(w) => w.set_maximized(maximized))
     }

@@ -13,11 +13,11 @@
 //! * `wayland-csd-adwaita` (default).
 //! * `wayland-csd-adwaita-crossfont`.
 //! * `wayland-csd-adwaita-notitle`.
-use sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
 use crate::dpi::{LogicalPosition, LogicalSize};
 use crate::event_loop::{ActiveEventLoop, EventLoop, EventLoopBuilder};
 use crate::monitor::MonitorHandle;
 use crate::window::{Window, WindowAttributes};
+pub use sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
 
 pub use crate::window::Theme;
 
@@ -87,10 +87,12 @@ pub trait WindowAttributesExtWayland {
     ///
     /// For details about application ID conventions, see the
     /// [Desktop Entry Spec](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#desktop-file-id)
-    fn with_name(self, general: impl Into<String>, instance: impl Into<String>) -> Self;    fn with_anchor(self, anchor: Anchor) -> Self;
+    fn with_name(self, general: impl Into<String>, instance: impl Into<String>) -> Self;
+    fn with_anchor(self, anchor: Anchor) -> Self;
     fn with_exclusive_zone(self, exclusive_zone: i32) -> Self;
     fn with_margin(self, top: i32, right: i32, bottom: i32, left: i32) -> Self;
     fn with_keyboard_interactivity(self, keyboard_interactivity: KeyboardInteractivity) -> Self;
+    #[cfg(wayland_platform)]
     fn with_layer(self, layer: Layer) -> Self;
     #[cfg(wayland_platform)]
     fn with_region(self, position: LogicalPosition<i32>, size: LogicalSize<i32>) -> Self;
@@ -128,6 +130,7 @@ impl WindowAttributesExtWayland for WindowAttributes {
         self
     }
     #[inline]
+    #[cfg(wayland_platform)]
     fn with_layer(mut self, layer: Layer) -> Self {
         self.platform_specific.wayland.layer = Some(layer);
         self

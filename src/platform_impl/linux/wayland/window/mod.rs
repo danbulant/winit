@@ -151,7 +151,9 @@ impl Window {
                 layer_surface.set_keyboard_interactivity(keyboard_interactivity);
             }
             if let Some((pos, size)) = attributes.platform_specific.wayland.region {
-                let region = Region::new(compositor.as_ref()).map_err(|_err| os_error!(crate::platform_impl::OsError::Misc("failed to set input region")))?;
+                let region = Region::new(compositor.as_ref()).map_err(|_err| {
+                    os_error!(crate::platform_impl::OsError::Misc("failed to set input region"))
+                })?;
                 region.add(pos.x, pos.y, size.width, size.height);
                 layer_surface.set_input_region(Some(region.wl_region()));
             }
@@ -660,7 +662,7 @@ impl Window {
     pub fn surface(&self) -> &WlSurface {
         self.window.wl_surface()
     }
-    
+
     #[inline]
     pub fn set_anchor(&self, anchor: Anchor) {
         self.window.set_anchor(anchor);

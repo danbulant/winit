@@ -3,10 +3,11 @@ use std::fmt;
 
 use crate::dpi::{PhysicalPosition, PhysicalSize, Position, Size};
 use crate::error::{ExternalError, NotSupportedError};
-#[cfg(wayland_platform)]
-use sctk::shell::wlr_layer::Layer;
 use crate::monitor::{MonitorHandle, VideoModeHandle};
 use crate::platform_impl::{self, PlatformSpecificWindowAttributes};
+use sctk::shell::wlr_layer::Anchor;
+#[cfg(wayland_platform)]
+use sctk::shell::wlr_layer::Layer;
 
 pub use crate::cursor::{BadImage, Cursor, CustomCursor, CustomCursorSource, MAX_CURSOR_SIZE};
 pub use crate::icon::{BadIcon, Icon};
@@ -1052,6 +1053,38 @@ impl Window {
         self.window.maybe_wait_on_main(|w| w.enabled_buttons())
     }
 
+    /// Sets anchor for the window.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland**: Only for platforms that support the wlr-layer-shell-unstable-v1 protocol.
+    /// - All other: Unsupported.
+    #[cfg(wayland_platform)]
+    #[inline]
+    pub fn set_anchor(&self, anchor: Anchor) {
+        let _span = tracing::debug_span!("winit::Window::set_anchor", anchor = ?anchor).entered();
+        self.window.maybe_queue_on_main(move |w| w.set_anchor(anchor))
+    }
+
+    /// Sets the exclusive zone. This is a size in pixels (surface local) from the edge (based on
+    /// [`set_anchor`]) that is considered exclusive to the window/surface. Only works if an
+    /// anchor is set to an edge. Corner anchors are treated as zero.
+    ///
+    /// Defaults to 0. Negative values indicate that the window should ignore other exclusive zones
+    /// (e.g. wallpapers may want to stretch over task bar).
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland**: Only for platforms that support the wlr-layer-shell-unstable-v1 protocol.
+    /// - All other: Unsupported.
+    #[cfg(wayland_platform)]
+    #[inline]
+    pub fn set_exclusive_zone(&self, zone: i32) {
+        let _span =
+            tracing::debug_span!("winit::Window::set_exclusive_zone", zone = ?zone).entered();
+        self.window.maybe_queue_on_main(move |w| w.set_exclusive_zone(zone))
+    }
+
     /// Sets the window to minimized or back
     ///
     /// ## Platform-specific
@@ -1818,7 +1851,6 @@ pub enum WindowLevel {
     /// The window will always be on top of normal windows.
     AlwaysOnTop,
 }
-
 
 #[cfg(wayland_platform)]
 impl From<WindowLevel> for Layer {
